@@ -1,0 +1,306 @@
+import java.util.*;
+import java.io.*;
+
+class Management{
+	private HashMap<Integer, Student> studentsMap = new HashMap<Integer, Student>(30);
+	private ArrayList<Student> studentsList = new ArrayList<Student>(30);
+	private String openfileName;
+	private boolean hasFile = false;
+	Scanner scan = new Scanner(System.in);
+
+	
+
+	public Management(){ }
+
+	public void showList(){
+		System.out.println("\n\n\t  ┌────────────────┐");
+		System.out.println("\t  │    학생 성적 관리 프로그램     │");
+		System.out.println("\t  ├────────────────┤");
+		System.out.println("\t  │\t1. 학생 성적 등록\t    │");
+		System.out.println("\t  │\t2. 순위별 학생 성적 조회    │");
+		System.out.println("\t  │\t3. 번호별 학생 성적 조회    │");	
+		System.out.println("\t  │\t4. 학생 상세 조회\t    │");
+		System.out.println("\t  │\t5. 학생 성적 삭제\t    │");
+		System.out.println("\t  │\t6. 종료\t\t\t    │");
+		System.out.println("\t  ├────────────────┤");
+		if(hasFile)
+			System.out.println("\t  │\t 불러온 파일 : " +  openfileName + "\t    │");
+		else
+			System.out.println("\t  │\t 불러온 파일이 없습니다.    │");
+		System.out.println("\t  └────────────────┘");
+		System.out.println();
+	}
+
+	public int selectList(){
+		int input=0;
+		try{
+			System.out.print("\t\t- 선택 : ");
+			input = scan.nextInt();
+			scan.nextLine();
+		}catch(InputMismatchException ime){
+			input = selectList();
+		}
+		return input;
+	}
+
+
+	// 학생 정보 입력
+	public void inputMenu(){
+		if(!hasFile){
+			inputStudentInfoByFile();
+		} else{
+
+		}
+
+	}
+
+	public void inputStudentInfoByKeyboard() throws InputMismatchException{
+		int userInputSize;
+
+		System.out.print("\n\t\t- 입력할 학생의 수 : ");
+		userInputSize = scan.nextInt(); 
+		
+
+		for(int i=0; i<userInputSize; i++){
+			scan.nextLine();
+			addStudent();
+		}
+	}
+
+	private void addStudent(){
+		try{
+			System.out.print("\t\t- 번호 : ");
+			int number = scan.nextInt();
+			existNumber(number);
+
+			scan.nextLine();
+			System.out.print("\t\t- 이름 : ");
+			String name = scan.nextLine();
+			System.out.print("\t\t- 국어 : ");
+			int kor = scan.nextInt();
+			System.out.print("\t\t- 영어 : ");
+			int eng = scan.nextInt();
+			System.out.print("\t\t- 수학 : ");
+			int math = scan.nextInt();
+			
+			studentsMap.put(number, new Student(number, name, kor, eng, math));
+		}catch(InputMismatchException ime){
+			printInputMismatchException();
+			addStudent();	
+		}
+	}
+
+	private int existNumber(int number){
+		while(studentsMap.containsKey(number)){
+			System.out.println("\t\t이미 존재하는 번호입니다.");
+			System.out.print("\t\t덮어씌우시겠습니까? [1:Yes / 2:No]");
+			int input = scan.nextInt();
+			if(input == 1){
+				break;
+			}else if(input == 2){
+				System.out.print("\t\t- 다른 번호 : ");
+				number = scan.nextInt();
+			} else{
+				System.out.println("\n\t\t잘못된 선택입니다!\n");
+			}
+		}
+		return number;
+	}
+
+	public void inputStudentInfoByFile(){
+		BufferedReader br = null;
+		System.out.print("불러올 파일 : ");
+		openfileName = scan.nextLine();
+		try{
+			br = new BufferedReader(new FileReader("./"+openfileName));
+			String line = null;
+			String[] splitLine = null;
+
+			while((line = br.readLine()) != null){
+				splitLine = line.split(" ");
+
+				Student tempStu = new Student(Integer.parseInt(splitLine[0]), splitLine[1], Integer.parseInt(splitLine[2]), Integer.parseInt(splitLine[3]), Integer.parseInt(splitLine[4]));
+				studentsMap.put(tempStu.getNumber(), tempStu);
+				studentsList.add(tempStu);
+			}
+		}catch(IOException ie){
+			ie.printStackTrace();
+		}finally{
+			try{
+				if(br != null)
+					br.close();
+			}catch(IOException ie){
+				ie.printStackTrace();
+			}
+		}
+	}
+
+
+
+	public void showGradeByRank(){
+		if(studentsMap.size() == 0)
+			throw	new NullPointerException();
+		countRank();
+
+		System.out.println("\n\n\n\t\t   <순위별 학생 성적 조회>");
+		printStudentInfo();
+	}
+
+	public void showGradeByNum(){
+		if(studentsMap.size() == 0)
+			throw new  NullPointerException();
+		countRank();
+
+		Collections.sort(studentsList, new NumberComparator());
+
+		System.out.println("\n\n\n\t\t   <번호별 학생 성적 조회>");
+		printStudentInfo();
+	}
+
+	private void countRank(){
+		Collections.sort(studentsList, new AverageComparator());
+
+		Iterator it = studentsList.iterator();
+		int numOfSameScore = 0;
+		int prevRank = 0;
+		double prevAverage = 0;
+		while(it.hasNext()){
+			Student student = (Student)it.next();
+			if(student.getAverage() < prevAverage){
+				student.setRank(prevRank + 1 + numOfSameScore);
+				numOfSameScore = 0;
+			} else if(student.getAverage() == prevAverage){
+				student.setRank(prevRank);
+				numOfSameScore++;
+			}
+			prevRank = student.getRank();
+			prevAverage = student.getAverage();
+		}
+	}
+
+	private void printStudentInfo(){
+		System.out.println("번호\t이름\t국어\t영어\t수학\t총점\t평균\t순위");
+		for(Student student : studentsList){
+			System.out.println(student);
+		}
+	}
+
+	public void showGradeInDetail(){
+		if(studentsMap.size() == 0)
+			throw new NullPointerException();
+		System.out.println("\t\t\t- 1 : 이름 조회");
+		System.out.println("\t\t\t- 2 : 번호 조회");
+		try{
+			System.out.print("\t\t\t\t- 선택 : ");
+			int input = scan.nextInt();
+
+			if(input == 1){
+				searchToName();
+			} else if(input == 2){
+				searchToNumber();
+			} else{
+				System.out.println("\n\t\t\t\t잘못 선택했습니다!");
+			}
+		}catch(InputMismatchException ime){
+			printInputMismatchException();
+			showGradeInDetail();
+		}
+	}
+
+	private void searchToName(){		
+		scan.nextLine();
+		System.out.print("\t\t\t\t- 조회할 이름 : ");
+		String name = scan.nextLine();
+		
+		Set<Integer> keys = studentsMap.keySet();
+		boolean hasName = false;		
+		for(Integer key : keys){
+			Student student = studentsMap.get(key);
+			if(student.getName().equals(name) && !hasName){
+				System.out.println("번호\t이름\t국어\t영어\t수학\t총점\t평균\t순위");
+				System.out.println(student);
+				hasName = true;
+			} else if(student.getName().equals(name)) {
+				System.out.println(student);
+			}
+		}
+		if(!hasName){
+			System.out.println("\t\t\t\t일치하는 이름이 없습니다!");
+		}
+	}
+
+	private void searchToNumber() throws InputMismatchException{
+		System.out.print("\t\t\t\t- 조회할 번호 : ");
+		int number = scan.nextInt();
+
+		if(studentsMap.containsKey(number)){
+			Student student = studentsMap.get(number);
+			System.out.println("번호\t이름\t국어\t영어\t수학\t총점\t평균\t순위");
+			System.out.println(student);
+		}else{		
+			System.out.println("\t\t\t\t일치하는 번호가 없습니다!");
+		}
+	}
+
+	public void showDeleteMenu() throws InputMismatchException{
+		System.out.println("\t\t\t- 1. 선택 삭제");
+		System.out.println("\t\t\t- 2. 전체 삭제");
+		System.out.println("\t\t\t- 3. 처음으로");
+		System.out.print("\t\t\t - 선택 : ");
+		int input = scan.nextInt();
+
+		if(input == 1){
+			deleteSelectedValue();
+		} else if(input == 2){
+			studentsMap.clear();
+			System.out.println("\t\t\t모든 내용삭제!!");
+		} else if(input == 3){
+			System.out.println("\t\t\t처음으로!");
+			return;
+		}
+
+	}
+
+	private void deleteSelectedValue() throws InputMismatchException{
+		System.out.print("\t\t\t\t - 삭제할 번호 입력 : ");
+		int number = scan.nextInt();
+		if(studentsMap.containsKey(number)){
+			System.out.println("\t\t\t\t"+number+ "번째 삭제!!");
+			studentsMap.remove(number);
+		} else{
+			System.out.println("\n\t\t\t\t없는 번호입니다!!");
+		}
+	}
+
+	public void writeFile(){
+		BufferedWriter bw = null;
+		System.out.print("저장할 파일 이름 : ");
+		String fileName = scan.nextLine();
+		try{
+			bw = new BufferedWriter(new FileWriter("./"+fileName));
+			String[] splitLine = null;
+			String line = null;
+			Set<Integer> keys = studentsMap.keySet(); 
+			for(Integer key : keys){
+				Student tempStu = studentsMap.get(key);
+				line = tempStu.getNumber() + " " + tempStu.getName() + " " + tempStu.getKor() + " " + tempStu.getEng() + " " + tempStu.getMath();
+				bw.write(line);
+
+			}
+		}catch(IOException ie){
+			ie.printStackTrace();
+		}finally{
+			try{
+				if(bw != null)
+					bw.close();
+			}catch(IOException ie){
+				ie.printStackTrace();
+			}
+		}
+	}
+
+	public void printInputMismatchException(){
+		System.out.println("\n\t\t\t잘못 입력했습니다!\n");
+		scan.nextLine();
+	}
+}
